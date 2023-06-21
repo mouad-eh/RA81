@@ -10,20 +10,28 @@ public class RicartAgrawalaMutex {
     private int[] deferredReplies;
     private int outstandingReplies;
     private boolean accessingCriticalSection;
+    private boolean inCriticalSection;
     private Random random;
     private int osn;
     private int hsn;
     private Object lock; // For mutual exclusion
+    private RicartAgrawalaGUI gui;
 
-    public RicartAgrawalaMutex(int processId) {
+    public RicartAgrawalaMutex(int processId, RicartAgrawalaGUI gui) {
         this.processId = processId;
         this.deferredReplies = new int[TOTAL_PROCESSES];
         this.outstandingReplies = 0;
         this.accessingCriticalSection = false;
+        this.inCriticalSection = false;
         this.random = new Random();
         this.osn = 0;
         this.hsn = 0;
         this.lock = new Object();
+        // if (processId == 0) {
+        // gui = new RicartAgrawalaGUI();
+        // }
+        // Store the reference to the GUI
+        this.gui = gui;
     }
 
     public void start() {
@@ -60,14 +68,17 @@ public class RicartAgrawalaMutex {
                 if (messageType.equals("REQUEST")) {
                     int requestingProcessId = Integer.parseInt(in.readLine());
                     int requestingClockValue = Integer.parseInt(in.readLine());
-
+                    // Update the GUI with log entries
+                    gui.addLogEntry(processId, "- request from " + requestingProcessId);
                     // System.out.println(
                     // "[Process " + processId + "] Received request from process " +
                     // requestingProcessId);
 
                     synchronized (lock) {
                         hsn = Math.max(requestingClockValue, hsn) + 1;
-
+                        // gui
+                        gui.updateProcessInfo(processId, osn, hsn, inCriticalSection);
+                        // gui
                         if (accessingCriticalSection && (requestingClockValue > osn
                                 || (requestingClockValue == osn && processId < requestingProcessId))) {
                             // System.out.print(
@@ -88,11 +99,13 @@ public class RicartAgrawalaMutex {
 
                     // System.out.println("[Process " + processId + "] Received reply from process "
                     // + replyingProcessId);
-
+                    gui.updateProcessInfo(processId, osn, hsn, inCriticalSection);
+                    gui.addLogEntry(processId, "- reply from " + replyingProcessId);
                     synchronized (lock) {
                         outstandingReplies--;
                         // System.out.println("*****" + processId + "*****" + outstandingReplies);
                     }
+
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -124,6 +137,9 @@ public class RicartAgrawalaMutex {
                             requestSocket.close();
                         }
                     }
+                    // Update the GUI with process information
+                    gui.updateProcessInfo(processId, osn, hsn, inCriticalSection);
+                    gui.addLogEntry(processId, "- Requesting CS");
                     while (true) {
                         synchronized (lock) {
                             if (outstandingReplies == 0) {
@@ -134,9 +150,12 @@ public class RicartAgrawalaMutex {
                     }
 
                     System.out.println("[Process " + processId + "] Entering critical section");
+                    inCriticalSection = true;
+                    gui.updateProcessInfo(processId, osn, hsn, inCriticalSection);
                     Thread.sleep(random.nextInt(1000) + 1000); // Critical section execution
                     System.out.println("[Process " + processId + "] Exiting critical section");
-
+                    inCriticalSection = false;
+                    gui.updateProcessInfo(processId, osn, hsn, inCriticalSection);
                     synchronized (lock) {
                         accessingCriticalSection = false;
 
@@ -161,9 +180,19 @@ public class RicartAgrawalaMutex {
     }
 
     public static void main(String[] args) {
+        // for (int i = 0; i < TOTAL_PROCESSES; i++) {
+        // RicartAgrawalaMutex process = new RicartAgrawalaMutex(i);
+        // process.start();
+        // }
+        RicartAgrawalaMutex[] processes = new RicartAgrawalaMutex[TOTAL_PROCESSES];
+
+        // Create the GUI
+        RicartAgrawalaGUI gui = new RicartAgrawalaGUI();
+
+        // Create and start the processes
         for (int i = 0; i < TOTAL_PROCESSES; i++) {
-            RicartAgrawalaMutex process = new RicartAgrawalaMutex(i);
-            process.start();
+            processes[i] = new RicartAgrawalaMutex(i, gui);
+            processes[i].start();
         }
     }
 }
