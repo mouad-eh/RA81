@@ -78,7 +78,6 @@ public class RicartAgrawalaGUI extends JFrame {
         public void updateInfo(int osn, int hsn, boolean inCriticalSection) {
             osnLabel.setText("OSN: " + osn);
             hsnLabel.setText("HSN: " + hsn);
-            // inCriticalSectionLabel.setText("SC: " + inCriticalSection);
             if (inCriticalSection) {
                 inCriticalSectionLabel.setText("SC: " + inCriticalSection);
                 inCriticalSectionLabel.setForeground(Color.GREEN);
